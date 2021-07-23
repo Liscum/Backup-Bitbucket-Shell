@@ -28,7 +28,7 @@ clean_up () {
     for bkp in $backup_location/*; do
         backup_name=$(basename $bkp)
 
-        # If backup name has the following format : 0000-00-22_00-00
+        # If backup name has the following format : 0000-00-00_00-00
         if [[ "$backup_name" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}$ ]]; then
             formatted_date=$(sed -r 's/_/ /g; s/(.*)-/\1:/g' <<< $backup_name)
             bkp_epoch=$(date -d "$formatted_date" +%s)
