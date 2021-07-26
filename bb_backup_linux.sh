@@ -25,16 +25,16 @@ backup_date=$(date +%F_%H-%M)
 clean_up () {
     keep_time_epoch=$(date --date="$keep_time" +%s)
 
-    for bkp in $backup_location/*; do
-        backup_name=$(basename $bkp)
+    for bkp in "$backup_location"/*; do
+        backup_name=$(basename "$bkp")
 
         # If backup name has the following format : 0000-00-00_00-00
         if [[ "$backup_name" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}$ ]]; then
-            formatted_date=$(sed -r 's/_/ /g; s/(.*)-/\1:/g' <<< $backup_name)
+            formatted_date=$(sed -r 's/_/ /g; s/(.*)-/\1:/g' <<< "$backup_name")
             bkp_epoch=$(date -d "$formatted_date" +%s)
 
-            if [ -d "$bkp" ] && [ $bkp_epoch -lt $keep_time_epoch ]; then
-                rm -R $bkp
+            if [ -d "$bkp" ] && [ "$bkp_epoch" -lt "$keep_time_epoch" ]; then
+                rm -R "$bkp"
             fi
         fi
     done
@@ -72,35 +72,35 @@ bb_backup () {
     # If the repo url contains the $workspace
     if [[ $repos =~ $bbuser ]] && [ $mode == "https" ]; then
         # Add password in URL so no prompt for it
-        local repo=$(sed "0,/$bbuser/s//$bbuser:$bbpass/" <<< "$repos")
+        local repo="$(sed "0,/$bbuser/s//$bbuser:$bbpass/" <<< "$repos")"
     elif [ $mode == "ssh" ]; then
-        local repo=$repos
+        local repo="$repos"
     fi
 
     # Cloning repos
-    git clone --mirror $repo $repoFolder 2> $tmp_errors
+    git clone --mirror "$repo" "$repoFolder" 2> "$tmp_errors"
     if [ $? -ne 0 ]; then
-        cat $tmp_errors >> $git_errors
-        echo -e "Error when cloning the following git repo : $repoFolder\nFull command : 'git clone --mirror $repos $repoFolder' (password removed from output)\n" >> $git_errors
+        cat "$tmp_errors" >> "$git_errors"
+        echo -e "Error when cloning the following git repo : $repoFolder\nFull command : 'git clone --mirror $repos $repoFolder' (password removed from output)\n" >> "$git_errors"
     fi
 
     # Verify integrity
-    git --git-dir $repoFolder fsck 2> $tmp_errors
+    git --git-dir "$repoFolder" fsck 2> "$tmp_errors"
     if [ $? -ne 0 ]; then
-        cat $tmp_errors >> $git_errors
-        echo -e "Error when verifying the following git repo : $repoFolder\nFull command : 'git --git-dir $repoFolder fsck'\n" >> $git_errors
+        cat "$tmp_errors" >> "$git_errors"
+        echo -e "Error when verifying the following git repo : $repoFolder\nFull command : 'git --git-dir $repoFolder fsck'\n" >> "$git_errors"
     fi
 
     # If error during git commands add output to the global log
     if [ -s "$git_errors" ]; then
-        cat $git_errors >> full_git_errors
+        cat "$git_errors" >> "full_git_errors"
     fi
 }
 
 
 # Script starts here
 temp_dir=$(mktemp -d)
-mkdir -p $backup_location/$backup_date
+mkdir -p "$backup_location/$backup_date"
 
 clean_up
 bitbucket_get_urls
@@ -117,16 +117,15 @@ NUM_PROCS=5
 NUM_ITERS=$(wc -l < $backup_location/bitbucket_url_list)
 
 # For each repos, starts the backup of the repo in background with a maximum background job of $NUM_PROCS
-for ((i=0; i<$NUM_ITERS; i++)); do
+for ((i=0; i<NUM_ITERS; i++)); do
     let 'i>=NUM_PROCS' && wait -n
-    bb_backup $(sed -n "$((i+1))"p $backup_location/bitbucket_url_list) &
+    bb_backup "$(sed -n "$((i+1))"p $backup_location/bitbucket_url_list)" &
 done
 wait
 
 # If an error occured during the git clone or verify commands -> send mail to $mail_to
 if [[ -s "$backup_location/$backup_date/full_git_errors" ]]; then
-    cat "$backup_location/$backup_date/full_git_errors" |mail -s "ERROR: Backup Bitbucket $workspace" $mail_to
+    mail -s "ERROR: Backup Bitbucket $workspace" $mail_to < "$backup_location/$backup_date/full_git_errors"
 fi
 
-rm -rf $temp_dir
-rm -f $backup_location/bitbucket_url_list $backup_location/$backup_date/full_git_errors
+rm -rf "$temp_dir" "$backup_location/bitbucket_url_list" "$backup_location/$backup_date/full_git_errors"
